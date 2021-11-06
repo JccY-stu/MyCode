@@ -1,4 +1,4 @@
-package com.yang.bioDPointObject;
+package com.yang.bioDPointObject.ClientPoint;
 
 import java.io.*;
 import java.net.Socket;
@@ -11,14 +11,14 @@ import java.util.Scanner;
  *
  * 发送消息
  */
-public class WriteUtilObject implements Runnable{
+public class WriteUtilClient implements Runnable{
 
     BufferedOutputStream bufferedOutputStream;
     Socket socket;
     Scanner scanner;
     int role;
 
-    public WriteUtilObject(Socket socket,int role) throws IOException {
+    public WriteUtilClient(Socket socket,int role) throws IOException {
         this.socket = socket;
         this.bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
         this.role = role;
@@ -59,6 +59,7 @@ public class WriteUtilObject implements Runnable{
                 //    System.out.println("请输入消息：");
             }
         }catch (Exception e){
+            System.out.println("写入消息时发现" + socket.getPort() + "连接中断了");
             e.printStackTrace();
         }finally {
             System.out.println("该关闭输出流了~");
