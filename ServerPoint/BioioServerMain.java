@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 /**
  * @Author Chengzhi
@@ -16,9 +17,11 @@ import java.util.concurrent.Executors;
  */
 public class BioioServerMain {
 
+    static Logger log = Logger.getLogger("BioioServerMain");
+
     public static void main(String[] args) throws Exception{
         ServerSocket serverSocket = new ServerSocket(6666);
-        System.out.println("服务器正在运行，等待客户端连接！");
+        log.info("服务器正在运行，等待客户端连接！");
 
         //使用一个队列来保存已经连接的客户端的Socket (已修改为线程安全)
         ConcurrentLinkedQueue<Socket> connectedSocketList = new ConcurrentLinkedQueue<Socket>();
@@ -30,20 +33,20 @@ public class BioioServerMain {
         ExecutorService threadPool = Executors.newFixedThreadPool(100);
 
         //创建一个新线程，传入所有已连接的客户端的SocketList，循环反馈;
-        WriteUtilServer writeUtilServer = new WriteUtilServer(connectedSocketList,clientNameMap);
-        threadPool.submit(writeUtilServer);
+        WriteServer writeServer = new WriteServer(connectedSocketList,clientNameMap);
+        threadPool.submit(writeServer);
 
         while(true){
             //监听，等待客户端连接
-            System.out.println("等待连接....");
+            log.info("等待连接....");
             final Socket socket = serverSocket.accept();
-            System.out.println("连接到一个客户端");
+            log.info("连接到一个客户端");
 
-            //将该客户端加入connetedSocketList
+            //将该客户端加入connetedSocketList(已连接链表)
             connectedSocketList.add(socket);
 
             //创建一个新线程 用于 读取数据
-            ReadUtilServer readUtil = new ReadUtilServer(socket,connectedSocketList);
+            ReadServer readUtil = new ReadServer(socket,connectedSocketList,clientNameMap);
             threadPool.submit(readUtil);
         }
     }
