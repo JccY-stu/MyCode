@@ -1,8 +1,7 @@
 package com.yang.bioDPointObject.ClientPoint;
 
-import com.yang.bioDPointObject.Message;
+import com.yang.bioDPointObject.Entry.Message;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
-import jdk.nashorn.internal.ir.CallNode;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -50,8 +49,9 @@ public class RegisterClient {
         Scanner scanner = new Scanner(System.in);
         String msg = scanner.nextLine();
         //将对象序列化为字节数组
-        Message message = new Message(-1, msg, msg.getBytes().length);
+        Message message = new Message(-1, msg, msg.getBytes().length,null);
         byte[] bytes = serializeUtil.objectToByteArray(message);
+
         //发送消息
         try {
             bufferedOutputStream.write(bytes);

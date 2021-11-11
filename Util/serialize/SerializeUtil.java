@@ -1,6 +1,6 @@
 package com.yang.bioDPointObject.Util.serialize;
 
-import com.yang.bioDPointObject.Message;
+import com.yang.bioDPointObject.Entry.Message;
 
 import java.io.*;
 
@@ -20,17 +20,17 @@ public class SerializeUtil {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    public Message byteArrayToObject(byte[] bytes) throws IOException, ClassNotFoundException {
+    public Object byteArrayToObject(byte[] bytes) throws IOException, ClassNotFoundException {
         //将字节数组序列化为 Message 对象
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
         ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
-        return (Message) objectInputStream.readObject();
+        return objectInputStream.readObject();
     }
 
     /**
      * 将对象序列化为字节数组
      */
-    public byte[] objectToByteArray(Message message) throws IOException {
+        public byte[] objectToByteArray(Object message) throws IOException {
         byte[] bytes;
         //将对象序列化为字节数组
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

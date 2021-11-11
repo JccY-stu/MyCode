@@ -1,7 +1,12 @@
 package com.yang.bioDPointObject.ServerPoint;
 
+import com.yang.bioDPointObject.Entry.MessageRedis;
+import com.yang.bioDPointObject.ServerPoint.redis.WriteToRedis;
+
+
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -29,12 +34,22 @@ public class BioioServerMain {
         //使用一个HashMap 存储 <Socket,姓名>
         ConcurrentHashMap<Socket,String> clientNameMap = new ConcurrentHashMap<Socket, String>();
 
+        //使用一个HashMap 存储消息 <发送者名称,发送的消息列表> <senderName,MessageRedis>
+        ConcurrentHashMap<String, Integer> msgMemoryMap = new ConcurrentHashMap<String, Integer>();
+
+        //使用一个List 存储消息 <发送的消息列表> <senderName,MessageRedis>
+        ArrayList<MessageRedis> everySenderMsgList = new ArrayList<MessageRedis>();
+
         //使用线程池来创建线程
         ExecutorService threadPool = Executors.newFixedThreadPool(100);
 
         //创建一个新线程，传入所有已连接的客户端的SocketList，循环反馈;
         WriteServer writeServer = new WriteServer(connectedSocketList,clientNameMap);
         threadPool.submit(writeServer);
+
+        //创建一个写入 redis 的线程
+        WriteToRedis writeToRedis = new WriteToRedis();
+        threadPool.submit(writeToRedis);
 
         while(true){
             //监听，等待客户端连接
@@ -46,7 +61,7 @@ public class BioioServerMain {
             connectedSocketList.add(socket);
 
             //创建一个新线程 用于 读取数据
-            ReadServer readUtil = new ReadServer(socket,connectedSocketList,clientNameMap);
+            ReadServer readUtil = new ReadServer(socket,connectedSocketList,clientNameMap,msgMemoryMap,everySenderMsgList,writeToRedis);
             threadPool.submit(readUtil);
         }
     }

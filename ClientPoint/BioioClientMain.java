@@ -1,10 +1,13 @@
 package com.yang.bioDPointObject.ClientPoint;
 
-import com.yang.bioDPointObject.Message;
+import com.yang.bioDPointObject.Entry.Message;
+import com.yang.bioDPointObject.ServerPoint.redis.WriteToRedis;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -22,6 +25,9 @@ public class BioioClientMain {
 
     public static void main(String[] args) throws IOException, InterruptedException {
 
+        //存放聊天室用户列表
+        List clientList = new ArrayList();
+
         //发送时间戳
         long sendTime = 0L;
 
@@ -32,7 +38,7 @@ public class BioioClientMain {
         socket.connect(new InetSocketAddress("127.0.0.1", 6666), 10000);//设置 10s 连接超时
 
         //创建一个新线程，用于 读取对端消息（其中完成了注册功能）
-        ReadClient readUtil = new ReadClient(socket);
+        ReadClient readUtil = new ReadClient(socket,clientList);
         Thread readThread = new Thread(readUtil);
         readThread.start();
 
@@ -46,7 +52,7 @@ public class BioioClientMain {
         //这里设置先注册 注册后20s才可以发送消息  实际上只需要第一次登录注册，然后如果要发送则将下列代码包装成方法调用即可，这里简化了逻辑1
         Thread.sleep(10000);
         //创建一个新线程 用于 发送数据
-        WriteClient writeUtil = new WriteClient(socket, 0, sendTime);
+        WriteClient writeUtil = new WriteClient(socket, 0, sendTime,clientList);
         Thread writeThread = new Thread(writeUtil);
         writeThread.start();
 

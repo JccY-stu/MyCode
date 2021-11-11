@@ -1,6 +1,6 @@
 package com.yang.bioDPointObject.ClientPoint;
 
-import com.yang.bioDPointObject.Message;
+import com.yang.bioDPointObject.Entry.Message;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
 
 import java.io.BufferedOutputStream;
@@ -42,7 +42,6 @@ public class SendToServer {
         log.info("请求获取当前客户端列表...");
         byte[] bytes;
         //将对象序列化为字节数组
-        message = new Message(-2,null,0);//-2代表请求服务器端发送好友列表
         bytes = serializeUtil.objectToByteArray(message);
 
         //发送消息
@@ -51,7 +50,7 @@ public class SendToServer {
             bufferedOutputStream.flush();
             log.info("请求已经发送完成啦");
         } catch (Exception e) {
-            System.out.println("连接已中断!");
+            log.info("连接已中断!");
             e.printStackTrace();
         }
     }

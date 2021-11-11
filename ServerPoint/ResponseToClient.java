@@ -1,6 +1,8 @@
 package com.yang.bioDPointObject.ServerPoint;
 
-import com.yang.bioDPointObject.Message;
+import com.yang.bioDPointObject.Error.ErrorEnum;
+import com.yang.bioDPointObject.Error.SuccessEnum;
+import com.yang.bioDPointObject.Entry.Message;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -54,27 +56,28 @@ public class ResponseToClient {
      * Socket不用判断因为它会自动覆盖（Map的去重）
      */
     public void Register(String name) throws IOException {
+        Message responseRegisterMsg = new Message();
         log.info("响应客户端" + socket.getPort() + "的注册请求");
         if(!clientNameMap.containsValue(name)){//还未注册
             clientNameMap.put(socket,name);
-        }else{
-            String msg = "该用户名已经存在！请重新选择！";
-            Message responseRegisterMsg = new Message();
-            responseRegisterMsg.setCode(-1);
-            responseRegisterMsg.setMsg(msg);
-            responseRegisterMsg.setLength((long) msg.getBytes().length);
+            responseRegisterMsg.setCode(SuccessEnum.SUCCESS_REGISTER.getResultCode());
+            responseRegisterMsg.setMsg(SuccessEnum.SUCCESS_REGISTER.getResultMsg());
+        }else {
+            responseRegisterMsg = new Message();
+            responseRegisterMsg.setCode(ErrorEnum.ALREADY_EXIT_USER.getResultCode());
+            responseRegisterMsg.setMsg(ErrorEnum.ALREADY_EXIT_USER.getResultMsg());
+            responseRegisterMsg.setLength((long) ErrorEnum.ALREADY_EXIT_USER.getResultMsg().getBytes().length);
+        }
 
-            //序列化
-            byte[] bytes = serializeUtil.objectToByteArray(responseRegisterMsg);
-
-            //发送
-            try {
-                bufferedOutputStream.write(bytes);
-                bufferedOutputStream.flush();
-            } catch (Exception e) {
-                log.info("连接已中断!");
-                e.printStackTrace();
-            }
+        //序列化
+        byte[] bytes = serializeUtil.objectToByteArray(responseRegisterMsg);
+        //发送
+        try {
+            bufferedOutputStream.write(bytes);
+            bufferedOutputStream.flush();
+        } catch (Exception e) {
+            log.info("连接已中断!");
+            e.printStackTrace();
         }
 
         log.info("clientNameMap.size = " + clientNameMap.size());
@@ -136,6 +139,7 @@ public class ResponseToClient {
 
         //序列化
         byte[] bytes = serializeUtil.objectToByteArray(noticeRegister);
+        log.fine("此时序列化成功！");
 
         //发送
         try {
@@ -157,15 +161,40 @@ public class ResponseToClient {
         Message message = new Message();
         //回复之前判断该客户端是否已经注册
         if(clientNameMap.containsKey(socket)){
-            //已注册
-            message.setCode(200);
-            message.setMsg("用户：" + clientNameMap.get(socket)+ "\t 您已成功连接服务器！");
+            //code = 202 表示已注册
+            message.setCode(SuccessEnum.SUCCESS_CONNECT.getResultCode());
+            message.setMsg(SuccessEnum.SUCCESS_CONNECT.getResultMsg());
         }else{
             //code = -1 表示需要注册
-            message.setCode(-1);
-            message.setMsg("您已成功连接服务器，但您还未注册用户名，请您输入您的用户名~");
+            message.setCode(SuccessEnum.SUCCESS_CONNECT_REGISTER.getResultCode());
+            message.setMsg(SuccessEnum.SUCCESS_CONNECT_REGISTER.getResultMsg());
         }
         message.setLength((long) message.getMsg().getBytes().length);
         return message;
+    }
+
+    //可以改造成枚举类型定义错误类型
+    /**
+     * 反馈客户端的错误
+     */
+    public void responseError(Socket socket) throws IOException {
+
+        Message message = new Message();
+
+        message.setCode(ErrorEnum.NOT_FOUND_USER.getResultCode());
+        message.setMsg(ErrorEnum.NOT_FOUND_USER.getResultMsg());
+
+        //序列化
+        byte[] bytes = serializeUtil.objectToByteArray(message);
+
+        //发送消息
+        try {
+            bufferedOutputStream.write(bytes);
+            bufferedOutputStream.flush();
+        } catch (Exception e) {
+            log.info("连接已中断!");
+            e.printStackTrace();
+        }
+        log.info("响应完毕");
     }
 }
