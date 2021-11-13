@@ -23,6 +23,8 @@ public class Message implements Serializable {
     private int code;
     //消息内容
     private String msg;
+    //发送者名称
+    private String senderName;
     //接收对象
     private String sendToName;
     //消息长度，用以分割消息
@@ -31,6 +33,8 @@ public class Message implements Serializable {
     private List<?> list;
     //写入日期
     private String date;
+    //唯一序列号（表示每一条消息）
+    private int uuid;
 
     public Message(){}
 
@@ -50,26 +54,6 @@ public class Message implements Serializable {
         this.date = date;
     }
 
-    public String getDate() {
-        return date;
-    }
-
-    public void setDate(String date) {
-        this.date = date;
-    }
-
-    /**
-     * 没有携带对象时 （客户端和服务器端互发）
-     * @param code
-     * @param msg
-     * @param length
-     */
-    public Message(int code,String msg, long length){
-        this.code = code;
-        this.msg = msg;
-        this.length = length;
-    }
-
     /**
      * 携带对象时（用于服务器向客户端返回 当前聊天室用户列表）
      * @param code
@@ -82,6 +66,30 @@ public class Message implements Serializable {
         this.msg = msg;
         this.length = length;
         this.list = object;
+    }
+
+    public int getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(int uuid) {
+        this.uuid = uuid;
+    }
+
+    public String getDate() {
+        return date;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
     }
 
     public String getSendToName() {
@@ -99,7 +107,6 @@ public class Message implements Serializable {
     public void setLength(Long length) {
         this.length = length;
     }
-
 
     public List<?> getList() {
         return list;
@@ -125,8 +132,12 @@ public class Message implements Serializable {
         this.msg = msg;
     }
 
+    /**
+     * 服务器端或者客户端发来的消息
+     * @return
+     */
     public String toString(){
-        return "length:" + length + " " + "code:" + code + "\t" + "msg:" + msg + "\t" ;
+        return "code:" + code + "\t" + "msg:" + msg;
     }
 
 }

@@ -1,10 +1,15 @@
 package com.yang.bioDPointObject.Util.serialize;
 
+import com.yang.bioDPointObject.Entry.MessageRedis;
 import io.protostuff.LinkedBuffer;
 import io.protostuff.ProtostuffIOUtil;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -44,4 +49,60 @@ public class ProtostuffUtils {
         }
         return schema;
     }
+
+    /**
+     * 序列化列表
+     * @param objList
+     * @return
+     */
+    public static <T> byte[] serializeList(List<T> objList) {
+        if (objList == null || objList.isEmpty()) {
+            throw new RuntimeException("序列化对象列表(" + objList + ")参数异常!");
+        }
+        @SuppressWarnings("unchecked")
+        Schema<T> schema = (Schema<T>) RuntimeSchema.getSchema(objList.get(0).getClass());
+        LinkedBuffer buffer = LinkedBuffer.allocate(1024 * 1024);
+        byte[] protostuff = null;
+        ByteArrayOutputStream bos = null;
+        try {
+            bos = new ByteArrayOutputStream();
+            ProtostuffIOUtil.writeListTo(bos, objList, schema, buffer);
+            protostuff = bos.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("序列化对象列表(" + objList + ")发生异常!", e);
+        } finally {
+            buffer.clear();
+            try {
+                if (bos != null) {
+                    bos.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return protostuff;
+    }
+
+    /**
+     * 反序列化列表
+     * @param paramArrayOfByte
+     * @param targetClass
+     * @return
+     */
+    public static <T> List<T> deserializeList(byte[] paramArrayOfByte, Class<T> targetClass) {
+        if (paramArrayOfByte == null || paramArrayOfByte.length == 0) {
+            throw new RuntimeException("反序列化对象发生异常,byte序列为空!");
+        }
+
+        Schema<T> schema = RuntimeSchema.getSchema(targetClass);
+        List<T> result = null;
+        try {
+            result = ProtostuffIOUtil.parseListFrom(new ByteArrayInputStream(paramArrayOfByte), schema);
+        } catch (IOException e) {
+            throw new RuntimeException("反序列化对象列表发生异常!", e);
+        }
+        return result;
+    }
+
 }

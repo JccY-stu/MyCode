@@ -1,6 +1,6 @@
 package com.yang.bioDPointObject.ClientPoint;
 
-import com.yang.bioDPointObject.Entry.Message;
+import com.yang.bioDPointObject.Entry.MsgCTS;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
 
 import java.io.BufferedOutputStream;
@@ -23,32 +23,31 @@ public class SendToServer {
     Socket socket;
 
     //指令内容
-    Message message;
+    MsgCTS msgCTS;
 
     //序列化
     SerializeUtil serializeUtil;
 
-    public SendToServer(Socket socket,Message message) throws IOException {
+    public SendToServer(Socket socket) throws IOException {
         this.bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
         this.socket = socket;
         this.serializeUtil = new SerializeUtil();
-        this.message = message;
+        this.msgCTS = msgCTS;
     }
 
     /**
      * 获取当前聊天室人员列表
      */
-    public void sendOrderToServer() throws IOException {
+    public void sendOrderToServer(MsgCTS msgCTS) throws IOException {
         log.info("请求获取当前客户端列表...");
         byte[] bytes;
         //将对象序列化为字节数组
-        bytes = serializeUtil.objectToByteArray(message);
+        bytes = serializeUtil.objectToByteArray(msgCTS);
 
         //发送消息
         try {
             bufferedOutputStream.write(bytes);
             bufferedOutputStream.flush();
-            log.info("请求已经发送完成啦");
         } catch (Exception e) {
             log.info("连接已中断!");
             e.printStackTrace();

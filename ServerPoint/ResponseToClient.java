@@ -1,5 +1,6 @@
 package com.yang.bioDPointObject.ServerPoint;
 
+import com.yang.bioDPointObject.Entry.MsgACK;
 import com.yang.bioDPointObject.Error.ErrorEnum;
 import com.yang.bioDPointObject.Error.SuccessEnum;
 import com.yang.bioDPointObject.Entry.Message;
@@ -31,22 +32,26 @@ public class ResponseToClient {
     Socket socket;
     //使用一个HashMap 存储 <Socket,姓名>
     ConcurrentHashMap<Socket,String> clientNameMap;
+    //使用一个HashMap 存储 <姓名,Socket> 方便根据接收者的名称找到对应的Socket
+    ConcurrentHashMap<String,Socket> clientSocketMap;
 
     //序列化实例
     SerializeUtil serializeUtil;
 
 
-    public ResponseToClient(ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap) throws IOException {
+    public ResponseToClient(ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap,ConcurrentHashMap<String,Socket> clientSocketMap) throws IOException {
         this.serializeUtil = new SerializeUtil();
         this.connectedSocketList = connectedSocketList;
         this.clientNameMap = clientNameMap;
+        this.clientSocketMap = clientSocketMap;
     }
 
-    public ResponseToClient(Socket socket,ConcurrentHashMap<Socket,String> clientNameMap) throws IOException {
+    public ResponseToClient(Socket socket,ConcurrentHashMap<Socket,String> clientNameMap,ConcurrentHashMap<String,Socket> clientSocketMap) throws IOException {
         this.bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
         this.serializeUtil = new SerializeUtil();
         this.socket = socket;
         this.clientNameMap = clientNameMap;
+        this.clientSocketMap = clientSocketMap;
     }
 
     /**
@@ -57,9 +62,10 @@ public class ResponseToClient {
      */
     public void Register(String name) throws IOException {
         Message responseRegisterMsg = new Message();
-        log.info("响应客户端" + socket.getPort() + "的注册请求");
+        log.info("响应客户端" + socket.getPort() + "的注册/登录请求");
         if(!clientNameMap.containsValue(name)){//还未注册
             clientNameMap.put(socket,name);
+            clientSocketMap.put(name,socket);
             responseRegisterMsg.setCode(SuccessEnum.SUCCESS_REGISTER.getResultCode());
             responseRegisterMsg.setMsg(SuccessEnum.SUCCESS_REGISTER.getResultMsg());
         }else {
@@ -80,13 +86,13 @@ public class ResponseToClient {
             e.printStackTrace();
         }
 
-        log.info("clientNameMap.size = " + clientNameMap.size());
+        log.info("已经登录的人数为： clientNameMap.size = " + clientNameMap.size());
         log.info("响应完毕");
     }
 
 
     /**
-     * 响应获取客户端列表
+     * 响应 获取客户端列表
      *
      *
      * @param socket
@@ -118,7 +124,7 @@ public class ResponseToClient {
     }
 
     /**
-     * 响应客户端连接状况
+     * 响应 客户端连接状况
      *
      * 连接成功后根据情况进行反馈：
      *      1.已注册用户名,则返回""
@@ -139,7 +145,6 @@ public class ResponseToClient {
 
         //序列化
         byte[] bytes = serializeUtil.objectToByteArray(noticeRegister);
-        log.fine("此时序列化成功！");
 
         //发送
         try {
@@ -197,4 +202,27 @@ public class ResponseToClient {
         }
         log.info("响应完毕");
     }
+
+    /**
+     * 反馈 消息状态
+     *
+     * 给客户端发送 ACK
+     */
+    public void responseMsgStatus(Socket socket,int uuid) throws IOException {
+
+        //将对象列表序列化为字节数组
+        MsgACK msgACK = new MsgACK(100,uuid, (long) 0);
+        byte[] bytes = serializeUtil.objectToByteArray(msgACK);
+
+        //发送消息
+        try {
+            bufferedOutputStream.write(bytes);
+            bufferedOutputStream.flush();
+        } catch (Exception e) {
+            log.info("连接已中断!");
+            e.printStackTrace();
+        }
+        log.info("响应完毕");
+    }
+
 }

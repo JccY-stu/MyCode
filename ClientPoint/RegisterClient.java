@@ -1,6 +1,6 @@
 package com.yang.bioDPointObject.ClientPoint;
 
-import com.yang.bioDPointObject.Entry.Message;
+import com.yang.bioDPointObject.Entry.MsgCTS;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
 
 import java.io.BufferedInputStream;
@@ -47,10 +47,10 @@ public class RegisterClient {
     public void sendRegisterMsg() throws IOException {
         System.out.println("请输入您注册的用户名：");
         Scanner scanner = new Scanner(System.in);
-        String msg = scanner.nextLine();
+        String userName = scanner.nextLine();
         //将对象序列化为字节数组
-        Message message = new Message(-1, msg, msg.getBytes().length,null);
-        byte[] bytes = serializeUtil.objectToByteArray(message);
+        MsgCTS msgCTS = new MsgCTS(-1, userName, (long) userName.getBytes().length);
+        byte[] bytes = serializeUtil.objectToByteArray(msgCTS);
 
         //发送消息
         try {

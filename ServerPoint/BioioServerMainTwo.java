@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  *
  * 传递对象信息
  */
-public class BioioServerMain {
+public class BioioServerMainTwo {
 
     static Logger log = Logger.getLogger("BioioServerMain");
 

@@ -9,6 +9,7 @@ package com.yang.bioDPointObject.ServerPoint;
 import com.yang.bioDPointObject.Entry.Message;
 import com.yang.bioDPointObject.Entry.MessageRedis;
 import com.yang.bioDPointObject.ServerPoint.redis.WriteToRedis;
+import com.yang.bioDPointObject.Util.BloomFileter.BloomFileter;
 import com.yang.bioDPointObject.Util.close.CloseUtil;
 import com.yang.bioDPointObject.Util.serialize.SerializeUtil;
 import redis.clients.jedis.Jedis;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
 /**
@@ -46,10 +48,11 @@ public class ReadServer implements Runnable {
     ConcurrentLinkedQueue<Socket> connectedSocketList;
     //使用一个HashMap 存储 <Socket,姓名>
     ConcurrentHashMap<Socket,String> clientNameMap;
+    //使用一个HashMap 存储 <姓名,Socket> 方便根据接收者的名称找到对应的Socket
+    ConcurrentHashMap<String,Socket> clientSocketMap;
     //使用一个HashMap 存储消息 <发送者名称,发送的消息> <senderName,MessageRedis>
-    ConcurrentHashMap<String, Integer> msgMemoryMap = new ConcurrentHashMap<String, Integer>();
-    //使用一个List 存储消息 <发送的消息列表> <senderName,MessageRedis>
-    List<MessageRedis> everySenderMsgList = new ArrayList<MessageRedis>();
+    ConcurrentHashMap<String, Integer> msgMemoryMap;
+
 
     //序列化实例
     SerializeUtil serializeUtil;
@@ -63,16 +66,16 @@ public class ReadServer implements Runnable {
     //传入写入Redis的线程
     WriteToRedis writeToRedis;
 
-    public ReadServer(Socket socket, ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap, ConcurrentHashMap<String, Integer> msgMemoryMap,ArrayList everySenderMsgList,WriteToRedis writeToRedis) throws IOException {
+    public ReadServer(Socket socket, ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap, ConcurrentHashMap<String,Socket> clientSocketMap, ConcurrentHashMap<String, Integer> msgMemoryMap,WriteToRedis writeToRedis) throws IOException {
         this.bufferedInputStream = new BufferedInputStream(socket.getInputStream());
         this.bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
         this.serializeUtil = new SerializeUtil();
         this.socket = socket;
         this.connectedSocketList = connectedSocketList;
         this.clientNameMap = clientNameMap;
+        this.clientSocketMap = clientSocketMap;
         this.msgMemoryMap = msgMemoryMap;
-        this.everySenderMsgList = everySenderMsgList;
-        this.responseToClient = new ResponseToClient(socket,clientNameMap);
+        this.responseToClient = new ResponseToClient(socket,clientNameMap,clientSocketMap);
         this.jedis = new Jedis("localhost");
         this.writeToRedis = writeToRedis;
     }
@@ -82,8 +85,13 @@ public class ReadServer implements Runnable {
         byte[] bytes = new byte[1024];
         //通过socket，获取输入流;
         try{
-                //循环的读取对端发送的数据
+            //创建布隆过滤器
+            BloomFileter fileter = new BloomFileter(7);
+            //创建消息队列
+            CopyOnWriteArrayList<MessageRedis> messageRedisList = new CopyOnWriteArrayList<MessageRedis>( );
+            //循环的读取对端发送的数据
                 while (true) {
+
                     bufferedInputStream.read(bytes);
 
                     //将字节数组序列化为对象
@@ -102,24 +110,44 @@ public class ReadServer implements Runnable {
                         responseToClient.responseClientList(socket,clientNameMap);
                     }
                     if(accMsg.getCode() == 200){// 200 表示是发送给其他客户端的信息
-                        if (!clientNameMap.containsValue(accMsg.getSendToName())) {//服务器端进行校验,如果不存在
+                        if (!clientNameMap.containsValue(accMsg.getSendToName())) {//服务器端进行校验,如果接收者不存在
                             //返回错误信息
                             responseToClient.responseError(socket);
                         } else {
-                            String senderName = clientNameMap.get(socket);
-                            //如果存在，则存入 Broker 考虑通过 Redis 来实现
-                            System.out.println("用户： " + senderName + " 发送消息： " + accMsg.getMsg() + " 给： " + accMsg.getSendToName() + "\t" + accMsg.getDate());
-                            //保存到内存
-//                            save(accMsg,senderName);
-                            MessageRedis messageRedis = new MessageRedis();
-                            messageRedis.setMsg(accMsg.getMsg());
-                            messageRedis.setSendToName(accMsg.getSendToName());
-                            messageRedis.setLength(accMsg.getLength());
-                            messageRedis.setWriteTime(accMsg.getDate());
-
-                            writeToRedis.setKey(senderName);
-                            writeToRedis.setMessageRedis(messageRedis);
-//                            writeToRedis.setMessageRedisList(msgList);
+                            //判断消息是否重复，即消息是否存在于布隆过滤器中
+                            //不存在重复则放入，返回false
+                            //存在则直接返回 true
+                            boolean isRepeat = fileter.addIfNotExist(String.valueOf(accMsg.getUuid()));
+                            if (isRepeat){log.info("该消息是重复消息");continue;}
+                            else {
+                                String senderName = clientNameMap.get(socket);
+                                /**
+                                 * 因为在客户端做了超时重传，为了避免因为Ack丢失而引起的超时重传导致服务器端收到重复消息
+                                 * 有以下三种方案：
+                                 * 1.因为上一条消息已经存在redis中，每当消息来临的时候先判断是否存在于redis中，由于redis存储的是<橙汁,<消息一,消息二>
+                                 *   使用redis取出很麻烦
+                                 * 2.使用哈希表，创建一个哈希表来存放已经处理的消息，每当消息来先在哈希表中查找看是否存在，缺点，占用空间大
+                                 * 3.布隆过滤器
+                                 */
+                                //写入 Redis
+                                //转换 消息格式
+                                MessageRedis messageRedis = new MessageRedis();
+                                messageRedis.setMsg(accMsg.getMsg());
+                                messageRedis.setSenderName(clientNameMap.get(socket));
+                                messageRedis.setSendToName(accMsg.getSendToName());
+                                messageRedis.setLength(accMsg.getLength());
+                                messageRedis.setWriteTime(accMsg.getDate());
+                                messageRedisList.add(messageRedis);
+                                //发送反馈给客户端
+                                if(save(senderName,messageRedisList)){
+                                    //转发
+                                    forward(clientSocketMap.get(accMsg.getSendToName()),messageRedis);
+                                    //给客户端发送确认消息
+                                    responseToClient.responseMsgStatus(socket,accMsg.getUuid());
+                                }
+                                //保存到内存
+                                //save(accMsg,senderName);
+                            }
                         }
                     }
             }
@@ -133,26 +161,55 @@ public class ReadServer implements Runnable {
         }
     }
 
-
-
-//    public  void save(Message accMsg,String senderName){
+//    /**
+//     * 将消息写入 Redis
+//     * @param accMsg 写入Redis的Msg
+//     * @param senderName 消息发送者名称
+//     */
+//    public void save(Message accMsg,String senderName) {
 //        MessageRedis messageRedis = new MessageRedis();
 //        messageRedis.setMsg(accMsg.getMsg());
 //        messageRedis.setSendToName(accMsg.getSendToName());
 //        messageRedis.setLength(accMsg.getLength());
 //        messageRedis.setWriteTime(accMsg.getDate());
-//        if(!msgMemoryMap.containsKey(senderName)){//第一次记录,则创建对应的消息列表 msgList 放入哈希表中
-//            ArrayList<MessageRedis> msgList = new ArrayList<MessageRedis>();
-//            msgList.add(messageRedis);
-//            msgMemoryMap.put(senderName,msgList);
-//        }else{//已经存在，则不是第一次记录
-//            ArrayList<MessageRedis> arrayList = msgMemoryMap.get(senderName);
-//            arrayList.add(messageRedis);
-//        }
-//        System.out.println("已经存入 msgMemoryMap 中");
-//        ArrayList<MessageRedis> arrayList = msgMemoryMap.get(senderName);
-//        System.out.println(arrayList.toString());
+//        writeToRedis.setKey(senderName);
+//        writeToRedis.setMessageRedis(messageRedis);
 //    }
 
 
+    /**
+     * 上面是存入单个消息
+     * 下面是存入 <橙汁,<消息一，消息二...>
+     * @param
+     * @param senderName
+     */
+    public Boolean save(String senderName,CopyOnWriteArrayList<MessageRedis> messageRedisList){
+        log.info("save方法成功调用...");
+        writeToRedis.setKey(senderName);
+        writeToRedis.setMessageList(messageRedisList);
+        return true;
+    }
+
+    /**
+     * 转发到对应客户端
+     */
+    public void forward(Socket socket,MessageRedis messageRedis) throws IOException {
+        log.info("目标Socket为：" + socket);
+        //创建输出流
+        BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(socket.getOutputStream());
+        log.info("创建输出流成功！");
+        //序列化
+        byte[] bytes = serializeUtil.objectToByteArray(messageRedis);
+
+        //发送消息
+        try {
+            bufferedOutputStream.write(bytes);
+            bufferedOutputStream.flush();
+            log.info("消息转发成功！");
+        } catch (Exception e) {
+            log.info("连接已中断!");
+            e.printStackTrace();
+        }
+        log.info("响应完毕");
+    }
 }

@@ -17,7 +17,7 @@ public class RedisTest {
         //连接本地的 Redis 服务
         Jedis jedis = new Jedis("localhost");
         RedisOps redisOps = new RedisOps(jedis);
-        Message message = new Message(-1, "OKK", 0);
+//        Message message = new Message(-1, "OKK", 0);
 //        redisOps.setObject("橙汁",message);
 //        Message msg = redisOps.getObject("橙汁");
 //        System.out.println(msg.toString());

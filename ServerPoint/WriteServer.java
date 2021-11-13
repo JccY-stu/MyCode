@@ -29,20 +29,23 @@ public class WriteServer implements Runnable{
     ConcurrentLinkedQueue<Socket> connectedSocketList;
     //获取所有已回复的Socket列表,初始化标记数组
     ConcurrentHashMap<Socket,Integer> replyMap;
-    //使用一个HashMap 存储 <姓名,Socket>
+    //使用一个HashMap 存储 <Socket,String>
     ConcurrentHashMap<Socket,String> clientNameMap;
+    //使用一个HashMap 存储 <姓名,Socket> 方便根据接收者的名称找到对应的Socket
+    ConcurrentHashMap<String,Socket> clientSocketMap;
     //序列化实例
     SerializeUtil serializeUtil;
 
     //回应客户端实例
     ResponseToClient responseToClient;
 
-    public WriteServer(ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap) throws IOException {
+    public WriteServer(ConcurrentLinkedQueue<Socket> connectedSocketList, ConcurrentHashMap<Socket,String> clientNameMap,ConcurrentHashMap<String,Socket> clientSocketMap) throws IOException {
         this.serializeUtil = new SerializeUtil();
         this.connectedSocketList = connectedSocketList;
         this.replyMap = new ConcurrentHashMap<>();
         this.clientNameMap = clientNameMap;
-        this.responseToClient = new ResponseToClient(connectedSocketList,clientNameMap);
+        this.clientSocketMap = clientSocketMap;
+        this.responseToClient = new ResponseToClient(connectedSocketList,clientNameMap,clientSocketMap);
     }
 
     //向已连接的所有Socket发送响应消息,并加入到replyMap(在其中的表示已响应)

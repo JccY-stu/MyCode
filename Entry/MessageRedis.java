@@ -1,8 +1,7 @@
 package com.yang.bioDPointObject.Entry;
 
 import java.io.Serializable;
-import java.util.Date;
-import java.util.List;
+
 
 /**
  * @Author Chengzhi
@@ -13,10 +12,12 @@ import java.util.List;
  *
  * <发送人,消息信息>
  */
-public class MessageRedis implements Serializable {
+public class MessageRedis extends Message implements Serializable {
 
     //消息内容
     private String msg;
+    //发送者名称
+    private String senderName;
     //接收者名称
     private String sendToName;
     //消息长度，用以分割消息
@@ -27,26 +28,20 @@ public class MessageRedis implements Serializable {
 
     public MessageRedis() {}
 
-    /**
-     * 存入 redis 的对象
-     * @param msg 信息
-     * @param sendToName 接收者
-     * @param length 信息长度
-     * @param writeTime 写入时间
-     */
-    public MessageRedis(String msg, String sendToName, Long length, String writeTime) {
-        this.msg = msg;
-        this.sendToName = sendToName;
-        this.length = length;
-        this.writeTime = writeTime;
-    }
-
     public String getMsg() {
         return msg;
     }
 
     public void setMsg(String msg) {
         this.msg = msg;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
     }
 
     public String getSendToName() {
@@ -77,6 +72,7 @@ public class MessageRedis implements Serializable {
     public String toString() {
         return "MessageRedis{" +
                 "msg='" + msg + '\'' +
+                ", senderName='" + senderName + '\'' +
                 ", sendToName='" + sendToName + '\'' +
                 ", length=" + length +
                 ", writeTime='" + writeTime + '\'' +
